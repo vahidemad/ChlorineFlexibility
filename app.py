@@ -138,7 +138,7 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
     total_rigid_cost = np.sum(rigid_cost_array)
 
     # Dynamic color mapping
-    cmap = cm.get_cmap('tab10')
+    cmap = plt.get_cmap('tab10')
     colors = {run['label']: cmap(i % 10) for i, run in enumerate(runs_to_execute)}
 
     if 'Dumb 1h (Static)' in colors:
