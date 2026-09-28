@@ -99,8 +99,8 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
                 active_terminal_value = global_terminal_value
 
             model = pulp.LpProblem(f"MPC_{t}", pulp.LpMinimize)
-            P = pulp.LpVariable.dicts("Prod", range(window_length), lowBound=L_min_tons, upBound=C_max)
-            S = pulp.LpVariable.dicts("Stor", range(window_length), lowBound=0, upBound=V_max)
+            P = {i: pulp.LpVariable(f"Prod_t{t}_h{i}", lowBound=L_min_tons, upBound=C_max) for i in range(window_length)}
+            S = {i: pulp.LpVariable(f"Stor_t{t}_h{i}", lowBound=0, upBound=V_max) for i in range(window_length)}
 
             model += pulp.lpSum([P[i] * energy_intensity * forecast_prices[i] for i in range(window_length)]) - (S[window_length - 1] * active_terminal_value)
 
