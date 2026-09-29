@@ -101,7 +101,8 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
             model = pulp.LpProblem(f"MPC_{t}", pulp.LpMinimize)
             P = pulp.LpVariable.dicts(f"Prod_t{t}", range(window_length), lowBound=L_min_tons, upBound=C_max)
             S = pulp.LpVariable.dicts(f"Stor_t{t}", range(window_length), lowBound=0, upBound=V_max)
-            model += pulp.lpSum([P[i] * energy_intensity * forecast_prices[i] for i in range(window_length)]) - (S[window_length - 1] * active_terminal_value)
+            # €0.00001 tie-breaker added to production cost to resolve solver indifference
+            model += pulp.lpSum([P[i] * (energy_intensity * forecast_prices[i] + 0.00001) for i in range(window_length)]) - (S[window_length - 1] * active_terminal_value)
 
             for i in range(window_length):
                 if i == 0:
