@@ -193,7 +193,7 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
             "Final Tank Level (Tons)": f"{final_storage:,.0f}",
             "Adjusted True Cost (€)": f"€{true_adjusted_cost:,.0f}",
             "True Savings (€)": f"€{true_savings:,.0f}",
-            "Total Throughput (Tons)": f"{throughput_tons:,.0f}"
+            "Total Inventory Volatility (Tons)": f"{throughput_tons:,.0f}"
         })
 
     st.table(pd.DataFrame(summary_data))
