@@ -101,7 +101,8 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
             model = pulp.LpProblem(f"MPC_{t}", pulp.LpMinimize)
             P = pulp.LpVariable.dicts(f"Prod_t{t}", range(window_length), lowBound=L_min_tons, upBound=C_max)
             S = pulp.LpVariable.dicts(f"Stor_t{t}", range(window_length), lowBound=0, upBound=V_max)
-            # €0.00001 tie-breaker added to production cost to resolve solver indifference
+            
+            # Pure objective function without artificial tie-breakers
             model += pulp.lpSum([P[i] * (energy_intensity * forecast_prices[i]) for i in range(window_length)]) - (S[window_length - 1] * active_terminal_value)
 
             for i in range(window_length):
@@ -178,6 +179,9 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
         final_storage = results_data[label]['stor'][-1]
         starting_storage = V_max / 2.0
 
+        # Calculate Total Storage Throughput (Tons Cycled)
+        throughput_tons = np.sum(np.abs(np.diff(results_data[label]['stor'])))
+
         inventory_delta_tons = starting_storage - final_storage
         inventory_adjustment_eur = inventory_delta_tons * avg_price_per_ton
 
@@ -188,7 +192,8 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
             "Scenario Combination": label,
             "Final Tank Level (Tons)": f"{final_storage:,.0f}",
             "Adjusted True Cost (€)": f"€{true_adjusted_cost:,.0f}",
-            "True Savings (€)": f"€{true_savings:,.0f}"
+            "True Savings (€)": f"€{true_savings:,.0f}",
+            "Total Throughput (Tons)": f"{throughput_tons:,.0f}"
         })
 
     st.table(pd.DataFrame(summary_data))
@@ -196,11 +201,19 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
     # Visualizations
     st.subheader("Comparative Analysis")
     fig, axes = plt.subplots(4, 1, figsize=(14, 24))
+    
+    # Setup blank histogram figure
+    fig_hist, ax_hist = plt.subplots(figsize=(12, 5))
 
     for label in results_data.keys():
         c = results_data[label]['color']
-        axes[0].plot(np.arange(hours_in_year), results_data[label]['stor'], color=c, alpha=0.6, label=label)
-        axes[1].plot(np.arange(hours_in_year), np.sort(results_data[label]['stor'])[::-1], color=c, linewidth=2, label=label)
+        stor_array = results_data[label]['stor']
+        
+        axes[0].plot(np.arange(hours_in_year), stor_array, color=c, alpha=0.6, label=label)
+        axes[1].plot(np.arange(hours_in_year), np.sort(stor_array)[::-1], color=c, linewidth=2, label=label)
+        
+        # Overlay histogram data for each scenario
+        ax_hist.hist(stor_array, bins=50, color=c, alpha=0.5, label=label, edgecolor='black')
 
     axes[0].set_title('Chronological Storage Level', fontweight='bold')
     axes[0].set_ylabel('Storage Level (Tons)')
@@ -243,23 +256,15 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
 
     plt.tight_layout()
     st.pyplot(fig)
-    
-    # Generate State of Charge (SoC) Histogram
+
+    # Render Buffer Capacity Utilization Histogram
     st.subheader("Buffer Capacity Utilization (State of Charge)")
-
-    fig_hist, ax_hist = plt.subplots(figsize=(12, 5))
-    # Plot the distribution of the storage array into 50 bins
-    ax_hist.hist(stor, bins=50, color='#2c7fb8', edgecolor='black', alpha=0.8)
-
-    # Format the chart
     ax_hist.set_title("Annual Storage Level Distribution", fontsize=14, fontweight='bold')
     ax_hist.set_xlabel("Tank Level (Tons)", fontsize=12)
     ax_hist.set_ylabel("Frequency (Hours of the Year)", fontsize=12)
+    ax_hist.legend(loc='upper right', fontsize='small')
     ax_hist.grid(True, linestyle='--', alpha=0.4)
-
-    # Render in Streamlit
     st.pyplot(fig_hist)
-    
 
 elif uploaded_file is None:
     st.info("Please upload the price dataset via the sidebar to begin.")
