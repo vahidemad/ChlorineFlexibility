@@ -243,6 +243,23 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
 
     plt.tight_layout()
     st.pyplot(fig)
+    
+    # Generate State of Charge (SoC) Histogram
+    st.subheader("Buffer Capacity Utilization (State of Charge)")
+
+    fig_hist, ax_hist = plt.subplots(figsize=(12, 5))
+    # Plot the distribution of the storage array into 50 bins
+    ax_hist.hist(stor, bins=50, color='#2c7fb8', edgecolor='black', alpha=0.8)
+
+    # Format the chart
+    ax_hist.set_title("Annual Storage Level Distribution", fontsize=14, fontweight='bold')
+    ax_hist.set_xlabel("Tank Level (Tons)", fontsize=12)
+    ax_hist.set_ylabel("Frequency (Hours of the Year)", fontsize=12)
+    ax_hist.grid(True, linestyle='--', alpha=0.4)
+
+    # Render in Streamlit
+    st.pyplot(fig_hist)
+    
 
 elif uploaded_file is None:
     st.info("Please upload the price dataset via the sidebar to begin.")
