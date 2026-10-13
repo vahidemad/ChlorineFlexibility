@@ -172,24 +172,60 @@ if st.sidebar.button("Run Simulation") and uploaded_file is not None and len(sel
     # Financial Summary Table (Inventory Adjusted)
     st.subheader("Financial Performance (Inventory Adjusted)")
     summary_data = []
-    avg_price_per_ton = np.mean(prices_eur_mwh) * energy_intensity
 
     for label in results_data.keys():
         raw_cost = results_data[label]['cost']
+        prod_array = results_data[label]['prod']
         final_storage = results_data[label]['stor'][-1]
         starting_storage = V_max / 2.0
 
         # Calculate Total Storage Throughput (Tons Cycled)
         throughput_tons = np.sum(np.abs(np.diff(results_data[label]['stor'])))
 
-        inventory_delta_tons = starting_storage - final_storage
-        inventory_adjustment_eur = inventory_delta_tons * avg_price_per_ton
+        # === NEW BOOKKEEPING LOGIC (OPTION 1: EQUILIBRIUM PRICE) ===
+        elec_price_ton = prices_eur_mwh * energy_intensity
+        prod_cost_array = prod_array * elec_price_ton
+        
+        # Helper function to run Weighted Average Cost (WAC) inventory tracking
+        def run_wac(start_price_mwh):
+            start_price_ton = start_price_mwh * energy_intensity
+            prev_end_buffer = starting_storage
+            prev_end_value = starting_storage * start_price_ton
+            
+            for i in range(hours_in_year):
+                interm_buffer = prev_end_buffer + prod_array[i]
+                interm_value = prev_end_value + prod_cost_array[i]
+                
+                # Blend the new production with the existing tank
+                avg_price = interm_value / interm_buffer if interm_buffer > 0 else 0
+                
+                delivery_cost = D_const * avg_price
+                prev_end_buffer = interm_buffer - D_const
+                prev_end_value = interm_value - delivery_cost
+                
+            return avg_price, prev_end_value
+            
+        # Pass 1: Run once using the market average to find the equilibrium end price
+        market_avg_mwh = np.mean(prices_eur_mwh)
+        final_price_ton_pass1, _ = run_wac(market_avg_mwh)
+        
+        # Pass 2: Run again using the equilibrium price as the perfect starting price
+        equilibrium_start_mwh = final_price_ton_pass1 / energy_intensity
+        _, final_storage_value = run_wac(equilibrium_start_mwh)
+        
+        # Calculate the financial value of the gained/lost storage
+        initial_storage_value = starting_storage * final_price_ton_pass1
+        value_difference = final_storage_value - initial_storage_value
+        
+        # Subtract the value of the asset (extra storage) from the raw production cost
+        true_adjusted_cost = raw_cost - value_difference
+        # ==========================================================
 
-        true_adjusted_cost = raw_cost + inventory_adjustment_eur
         true_savings = total_rigid_cost - true_adjusted_cost
 
         summary_data.append({
             "Scenario Combination": label,
+            "Equil. Start Price (€/MWh)": f"€{equilibrium_start_mwh:,.2f}",
             "Final Tank Level (Tons)": f"{final_storage:,.0f}",
             "Adjusted True Cost (€)": f"€{true_adjusted_cost:,.0f}",
             "True Savings (€)": f"€{true_savings:,.0f}",
